@@ -5,14 +5,18 @@ import (
 )
 
 type Matrix struct {
-	Data        [][]int // Input Data
-	Cells       []Cell
-	StartPoint  Coordinates //???
-	FinishPoint Coordinates //???
-	NextPoint   []Coordinates
+	Data         [][]int // Input Data
+	Cells        []Cell
+	StartPoint   Coordinates
+	FinishPoint  Coordinates
+	CurrentPoint Coordinates
+	Path         []Coordinates
+	OpenList     []Cell
+	ClosedList   []Cell
 }
 
 type Cell struct {
+	CellIndex   int
 	Type        int // Cell type
 	G           int // movement cost to StartPoint
 	H           int // estimated movement cost to FinishPoint
@@ -31,37 +35,31 @@ type Coordinates struct {
 }
 
 type Neighbor struct {
-	//CellIndex       int
 	ParentCellIndex int
 	Diagonal        bool
-	//ParentCellCoordinates Coordinates
-	c Coordinates // Neighbor Cell coordinates
+	c               Coordinates // Neighbor Cell coordinates
 }
 
 func (m *Matrix) Construct() {
+
 	var i int = 0                                      // Cells iterator
 	m.Cells = make([]Cell, len(m.Data)*len(m.Data[0])) // allocate memory for Cells slice
+
+	// fill up m.Cells
 	for y := 0; y < len(m.Data); y++ {
 		for x := 0; x < len(m.Data[0]); x++ {
-			if m.Data[y][x] == 1 {
-				m.Cells[i].StartPoint = true
-				m.Cells[i].OpenList = true
-			}
-			if m.Data[y][x] == 3 {
-				m.Cells[i].FinishPoint = true
-			}
 			m.Cells[i].Type = m.Data[y][x]
-			m.Cells[i].Coordinates.x = x
-			m.Cells[i].Coordinates.y = y
+			m.Cells[i].Coordinates = Coordinates{x, y}
 			m.Cells[i].Neighbors = make([]Neighbor, 8)
+			m.Cells[i].CellIndex = i
+
+			// determine 8 neighbors for each Cell
 			for n := 0; n < 8; n++ {
-				//m.Cells[i].Neighbors[n].ParentCellIndex = i
 				switch n {
 				case 0:
 					m.Cells[i].Neighbors[n].c.x = x - 1
 					m.Cells[i].Neighbors[n].c.y = y - 1
 					m.Cells[i].Neighbors[n].Diagonal = true
-					//m.Cells[i].Neighbors[n].ParentCellCoordinates =
 				case 1:
 					m.Cells[i].Neighbors[n].c.x = x
 					m.Cells[i].Neighbors[n].c.y = y - 1
@@ -86,51 +84,77 @@ func (m *Matrix) Construct() {
 				case 7:
 					m.Cells[i].Neighbors[n].c.x = x - 1
 					m.Cells[i].Neighbors[n].c.y = y
-				default:
-					fmt.Println("????")
 				}
-
-				//fmt.Printf("%v\n", m.GetCellIndex(m.Cells[i].Neighbors[n].c.x, m.Cells[i].Neighbors[n].c.y))
 			}
+
+			// setup StartPoint, FinishPoint and add StartPoint to OpenList and Path
+			if m.Data[y][x] == 1 { // passable Cell
+				m.Cells[i].StartPoint = true
+				m.Cells[i].OpenList = true
+				m.StartPoint = Coordinates{x, y}
+				m.CurrentPoint = m.StartPoint
+				m.OpenList = append(m.OpenList, m.Cells[i])
+				m.Path = append(m.Path, m.StartPoint)
+			} else if m.Data[y][x] == 3 { // FinishPoint Cell
+				m.Cells[i].FinishPoint = true
+				m.FinishPoint = Coordinates{x, y}
+			}
+
 			i++
 		}
 	}
 }
 
 func (m *Matrix) EvaluateMovementCost() {
-	x, y := m.GetStartPoint()
-	i := m.GetCellIndex(x, y)
-	m.NextPoint = append(m.NextPoint, Coordinates{x, y})
-	var NeighborCellIndex int
-	//fmt.Printf("%v\n", m.Cells[i].OpenList)
+
+	var i int
+	if m.StartPoint == m.CurrentPoint {
+		// for first step
+		fmt.Println("StartPoint is equal to CurrentPoint\n")
+		//i = m.GetCellIndex(m.StartPoint.x, m.StartPoint.y)
+		i = m.GetCellIndex(m.StartPoint)
+	} else {
+		// for other steps
+	}
+
+	// determine F, G, H for each neighbor
 	for _, v := range m.Cells[i].Neighbors {
-		NeighborCellIndex = m.GetCellIndex(v.c.x, v.c.y)
+
+		NeighborCellIndex := m.GetCellIndex(v.c)
 		fmt.Printf("Neighbor: [%v, %v] ", v.c.x, v.c.y)
-		if m.Cells[NeighborCellIndex].Type == 0 {
-			m.Cells[NeighborCellIndex].OpenList = true
-		}
+
+		// determine G
 		if v.Diagonal {
 			m.Cells[NeighborCellIndex].G = m.Cells[(v.ParentCellIndex)].G + 14
 		} else {
 			m.Cells[NeighborCellIndex].G = m.Cells[(v.ParentCellIndex)].G + 10
 		}
 
-		fx, fy := m.GetFinishPoint()
+		// determine H
 		var hx, hy int
-		if hx = (fx - v.c.x); hx < 0 {
+
+		if hx = (m.FinishPoint.x - v.c.x); hx < 0 {
 			hx *= -1
 		}
-		if hy = (fy - v.c.y); hy < 0 {
+		if hy = (m.FinishPoint.y - v.c.y); hy < 0 {
 			hy *= -1
 		}
+
 		m.Cells[NeighborCellIndex].H = (hx + hy) * 10
-		m.Cells[NeighborCellIndex].F = m.Cells[NeighborCellIndex].G + m.Cells[NeighborCellIndex].H
+		m.Cells[NeighborCellIndex].F = m.Cells[NeighborCellIndex].G + m.Cells[NeighborCellIndex].H // F = G + H
 
 		fmt.Printf("G: %v + ", m.Cells[NeighborCellIndex].G)
 		fmt.Printf("H: %v = ", m.Cells[NeighborCellIndex].H)
 		fmt.Printf("F: %v\n", m.Cells[NeighborCellIndex].F)
 
-		v.ParentCellIndex = i
+		v.ParentCellIndex = i // save parrent index for this neighbor
+
+		// add neighbors to OpenList
+		if m.Cells[NeighborCellIndex].Type == 0 {
+			m.Cells[NeighborCellIndex].OpenList = true
+			m.OpenList = append(m.OpenList, m.Cells[NeighborCellIndex])
+		}
+
 		fmt.Printf("Parent : [%v, %v]\n", m.Cells[i].Coordinates.x, m.Cells[i].Coordinates.y)
 	}
 	m.Cells[i].OpenList = false
@@ -166,23 +190,12 @@ func (m Matrix) PrintCellNeighbors(i int) {
 }
 
 func (m Matrix) PrintOpenList() {
-	fmt.Printf("OpenList: \n")
-	for k, v := range m.Cells {
-		if v.OpenList {
-			fmt.Printf("[%v, %v]\n", m.Cells[k].Coordinates.x, m.Cells[k].Coordinates.y)
-		}
+	fmt.Printf("OpenList struct: \n")
+	for _, v := range m.OpenList {
+		fmt.Printf("[%v, %v]\n", v.Coordinates.x, v.Coordinates.y)
+		fmt.Printf("G: %v, H: %v\n", v.G, v.H)
 	}
 }
-
-/*
-func (m Matrix) GetOpenList(OpenList [][]int) {
-	//OpenList
-	for _, v := range m.Cells {
-		if v.OpenList {
-			//m.Cells[k].Coordinates.x, m.Cells[k].Coordinates.y
-		}
-	}
-}*/
 
 func (m Matrix) Move() int {
 	var i, n int
@@ -190,45 +203,52 @@ func (m Matrix) Move() int {
 	for k, v := range m.Cells {
 		if v.OpenList {
 			if v.F > n {
-				fmt.Println(v.F, ">", n)
+				//fmt.Println(v.F, ">", n)
 			} else {
-				fmt.Println(v.F, "<", n)
+				//fmt.Println(v.F, "<", n)
 				n = v.F
-				i = k
+				i = k // save to i a cell index with smallest F
 			}
 		}
 	}
+
+	m.CurrentPoint = m.Cells[i].Coordinates // setup new CurrentPoint
 	fmt.Printf("Chosed [%v] cell index with F = %v for next step\n", i, n)
 	fmt.Printf("Index [%v, %v]\n", m.Cells[i].Coordinates.x, m.Cells[i].Coordinates.y)
 	return i
 }
 
-func (m Matrix) GetCellIndex(x, y int) int {
+func (m Matrix) GetCellIndex(c Coordinates) int {
+	var CellIndex int
 	for k, v := range m.Cells {
-		if v.Coordinates.x == x && v.Coordinates.y == y {
-			return k
+		if v.Coordinates == c {
+			//if v.Coordinates.x == x && v.Coordinates.y == y {
+			CellIndex = k
 		}
 	}
-	return -1
+	return CellIndex
 }
 
-func (m Matrix) GetStartPoint() (int, int) {
+/*
+func (m Matrix) GetStartPoint() Coordinates {
+	var StartPoint Coordinates
 	for _, v := range m.Cells {
 		if v.StartPoint {
-			return v.Coordinates.x, v.Coordinates.y
+			StartPoint = v.Coordinates
 		}
 	}
-	return -1, -1
+	return StartPoint
 }
 
-func (m Matrix) GetFinishPoint() (int, int) {
+func (m Matrix) GetFinishPoint() Coordinates {
+	var FinishPoint Coordinates
 	for _, v := range m.Cells {
 		if v.FinishPoint {
-			return v.Coordinates.x, v.Coordinates.y
+			FinishPoint = v.Coordinates
 		}
 	}
-	return -1, -1
-}
+	return FinishPoint
+}*/
 
 func main() {
 	var m Matrix
@@ -245,11 +265,9 @@ func main() {
 	}
 	m.Construct()
 	m.PrintMatrix()
-	//x, y := m.GetStartPoint()
-	//fmt.Printf("[%v, %v]\n\n", x, y)
 	m.EvaluateMovementCost()
 	m.PrintOpenList()
 	m.Move()
-	//fmt.Printf("%v", m.GetCellIndex(1, 5))
-	//fmt.Println(m.NextPoint)
+
+	fmt.Println(m.StartPoint)
 }
