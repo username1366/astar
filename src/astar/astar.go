@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 )
 
 const (
@@ -10,8 +11,7 @@ const (
 	StartCell      = 1
 	Obstacles      = 2
 	FinishCell     = 3
-	Columns        = 8
-	Rows           = 8
+	Step           = 4
 )
 
 type Matrix struct {
@@ -20,9 +20,6 @@ type Matrix struct {
 	StartPoint   Coordinates
 	FinishPoint  Coordinates
 	CurrentPoint Coordinates
-	Path         []Coordinates // traversed Path
-	//OpenList     []Cell
-	//ClosedList   []Cell
 }
 
 type Cell struct {
@@ -31,8 +28,6 @@ type Cell struct {
 	G           int // movement cost to StartPoint
 	H           int // estimated movement cost to FinishPoint
 	F           int
-	StartPoint  bool // is StartPoint?
-	FinishPoint bool // is FinishPoint?
 	OpenList    bool
 	ClosedList  bool
 	Delimiter   bool
@@ -46,9 +41,8 @@ type Coordinates struct {
 }
 
 type Neighbor struct {
-	ParentCellIndex int
-	Diagonal        bool
-	c               Coordinates // Neighbor Cell coordinates
+	Diagonal bool
+	c        Coordinates // Neighbor Cell coordinates
 }
 
 func (m *Matrix) Construct() {
@@ -56,14 +50,14 @@ func (m *Matrix) Construct() {
 	var i int = 0                                      // Cells iterator
 	m.Cells = make([]Cell, len(m.Data)*len(m.Data[0])) // allocate memory for Cells slice
 
-	// fill up m.Cells
+	// fill up m.Cells slice
 	for y := 0; y < len(m.Data); y++ {
 		for x := 0; x < len(m.Data[0]); x++ {
 			m.Cells[i].Type = m.Data[y][x]
 			m.Cells[i].Coordinates = Coordinates{x, y}
 			m.Cells[i].Neighbors = make([]Neighbor, NumOfNeighbors)
 			m.Cells[i].CellIndex = i
-			if (i+1)%Columns == 0 {
+			if (i+1)%len(m.Data[0]) == 0 {
 				m.Cells[i].Delimiter = true
 			}
 
@@ -103,13 +97,10 @@ func (m *Matrix) Construct() {
 
 			// setup StartPoint, FinishPoint and add StartPoint to OpenList and Path
 			if m.Data[y][x] == StartCell {
-				m.Cells[i].StartPoint = true
 				m.Cells[i].OpenList = true
 				m.StartPoint = Coordinates{x, y}
 				m.CurrentPoint = m.StartPoint
-				m.Path = append(m.Path, m.StartPoint)
 			} else if m.Data[y][x] == FinishCell {
-				m.Cells[i].FinishPoint = true
 				m.FinishPoint = Coordinates{x, y}
 			}
 
@@ -121,14 +112,17 @@ func (m *Matrix) Construct() {
 func (m *Matrix) EvaluateMovementCost() {
 
 	i := m.GetCellIndex(m.CurrentPoint)
-	fmt.Printf("Current point: %v\n", m.GetCellIndex(m.CurrentPoint))
+	if os.Getenv("DEBUG") == "1" {
+		fmt.Printf("Current point: %v\n", m.GetCellIndex(m.CurrentPoint))
+	}
 	StartPointIndex := m.GetCellIndex(m.StartPoint)
 	// determine F, G, H for each neighbor
 	for _, v := range m.Cells[i].Neighbors {
 
 		NeighborCellIndex := m.GetCellIndex(v.c)
-		//fmt.Printf("Neighbor: [%v, %v] ", v.c.x, v.c.y)
-		fmt.Printf("Neighbor index: [%v] ", NeighborCellIndex)
+		if os.Getenv("DEBUG") == "1" {
+			fmt.Printf("Neighbor index: [%v] ", NeighborCellIndex)
+		}
 
 		// determine G
 		if v.Diagonal {
@@ -150,21 +144,17 @@ func (m *Matrix) EvaluateMovementCost() {
 		m.Cells[NeighborCellIndex].H = (hx + hy) * 10
 		m.Cells[NeighborCellIndex].F = m.Cells[NeighborCellIndex].G + m.Cells[NeighborCellIndex].H // F = G + H
 
-		fmt.Printf("G: %v + ", m.Cells[NeighborCellIndex].G)
-		fmt.Printf("H: %v = ", m.Cells[NeighborCellIndex].H)
-		fmt.Printf("F: %v\n", m.Cells[NeighborCellIndex].F)
-
-		v.ParentCellIndex = i // save parrent index for this neighbor
+		if os.Getenv("DEBUG") == "1" {
+			fmt.Printf("G: %v + ", m.Cells[NeighborCellIndex].G)
+			fmt.Printf("H: %v = ", m.Cells[NeighborCellIndex].H)
+			fmt.Printf("F: %v\n", m.Cells[NeighborCellIndex].F)
+		}
 
 		// add neighbors to OpenList
 		if m.Cells[NeighborCellIndex].Type == PassableCell && !m.Cells[NeighborCellIndex].ClosedList {
 			m.Cells[NeighborCellIndex].OpenList = true
 			m.Cells[NeighborCellIndex].ClosedList = false
-			//m.OpenList = append(m.OpenList, m.Cells[NeighborCellIndex])
 		}
-
-		//fmt.Printf("Parent index : %v\n", v.ParentCellIndex)
-		//fmt.Printf("Parent : [%v, %v]\n", m.Cells[v.ParentCellIndex].Coordinates.x, m.Cells[v.ParentCellIndex].Coordinates.y)
 	}
 	m.Cells[i].OpenList = false
 	m.Cells[i].ClosedList = true
@@ -176,9 +166,13 @@ func (m *Matrix) Move() int {
 	for k, v := range m.Cells {
 		if v.OpenList {
 			if v.F > n {
-				//fmt.Println(v.F, ">", n)
+				if os.Getenv("DEBUG") == "1" {
+					fmt.Println(v.F, ">", n)
+				}
 			} else {
-				//fmt.Println(v.F, "<", n)
+				if os.Getenv("DEBUG") == "1" {
+					fmt.Println(v.F, "<", n)
+				}
 				n = v.F
 				i = k // save to i the cell index with smallest F
 			}
@@ -186,35 +180,13 @@ func (m *Matrix) Move() int {
 	}
 
 	m.CurrentPoint = m.Cells[i].Coordinates // setup new CurrentPoint
-	m.Cells[i].Type = 7
+	m.Cells[i].Type = Step
 	m.Cells[i].OpenList = false
 	m.Cells[i].ClosedList = true
-	fmt.Printf("Chose [%v] cell index with F = %v for next step\n", i, n)
-	//fmt.Printf("Index [%v, %v]\n", m.Cells[i].Coordinates.x, m.Cells[i].Coordinates.y)
-	return i
-}
-
-func (m Matrix) PrintMatrix() {
-	k := 0
-	l := 0
-	fmt.Printf("*---0-------1-------2-------3-------4-------5-------6-------7-> x\n|\n")
-	for i := 0; i < len(m.Cells); i++ {
-		if k == 0 {
-			fmt.Printf("%d \t%v\t", l, m.Cells[i].Type)
-			l++
-		} else {
-			fmt.Printf("\t%v\t", m.Cells[i].Type)
-		}
-		if k == 7 && i < len(m.Cells)-1 {
-			fmt.Printf("\n|\n")
-			k = 0
-		} else {
-			k++
-		}
-		if i == len(m.Cells)-1 {
-			fmt.Printf("\n|\nv\n")
-		}
+	if os.Getenv("DEBUG") == "1" {
+		fmt.Printf("Chose [%v] cell index with F = %v for next step\n", i, n)
 	}
+	return i
 }
 
 func (m Matrix) Print() {
@@ -227,8 +199,19 @@ func (m Matrix) Print() {
 	}
 }
 
-func (m Matrix) PrintCellNeighbors(i int) {
-	fmt.Printf("%v\n", m.Cells[i].Neighbors)
+func (m Matrix) PrintResult() {
+	for _, v := range m.Cells {
+		if v.Type == Step {
+			fmt.Printf("* \t\t")
+		} else {
+			fmt.Printf("%v \t\t", v.Type)
+		}
+		if v.Delimiter {
+			fmt.Printf("\n")
+		}
+
+	}
+	fmt.Println("\n")
 }
 
 func (m Matrix) PrintOpenList() {
@@ -273,23 +256,22 @@ func main() {
 		//  1, 2, 3, 4, 5, 6, 7
 	}
 	m.Construct()
-	for i := 0; i < 10000; i++ {
-		m.Print()
+	for i := 0; i < len(m.Data)*len(m.Data[0])*4; i++ {
 		m.EvaluateMovementCost()
 		m.Move()
-		m.PrintOpenList()
-		m.PrintClosedList()
+
+		if os.Getenv("DEBUG") == "1" {
+			m.Print()
+			m.PrintOpenList()
+			m.PrintClosedList()
+		}
+		fmt.Println("Step:", i)
+		m.PrintResult()
+
 		CellIndex := m.GetCellIndex(m.CurrentPoint)
 		if m.Cells[CellIndex].H == 10 {
+			fmt.Println("I've found FinishPoint!\n")
 			break
 		}
 	}
-
-	m.Print()
-
-	// m.Move() < m.FinishPoint
-
-	//fmt.Println(m.StartPoint)
-	//m.Print()
-
 }
