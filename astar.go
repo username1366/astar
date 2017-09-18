@@ -40,6 +40,14 @@ type Neighbor struct {
 	c               Coordinates // Neighbor Cell coordinates
 }
 
+const (
+	NumOfNeighbors = 8
+	PassableCell   = 0
+	StartCell      = 1
+	Obstacles      = 2
+	FinishCell     = 3
+)
+
 func (m *Matrix) Construct() {
 
 	var i int = 0                                      // Cells iterator
@@ -50,11 +58,11 @@ func (m *Matrix) Construct() {
 		for x := 0; x < len(m.Data[0]); x++ {
 			m.Cells[i].Type = m.Data[y][x]
 			m.Cells[i].Coordinates = Coordinates{x, y}
-			m.Cells[i].Neighbors = make([]Neighbor, 8)
+			m.Cells[i].Neighbors = make([]Neighbor, NumOfNeighbors)
 			m.Cells[i].CellIndex = i
 
 			// determine 8 neighbors for each Cell
-			for n := 0; n < 8; n++ {
+			for n := 0; n < NumOfNeighbors; n++ {
 				switch n {
 				case 0:
 					m.Cells[i].Neighbors[n].c.x = x - 1
@@ -88,14 +96,14 @@ func (m *Matrix) Construct() {
 			}
 
 			// setup StartPoint, FinishPoint and add StartPoint to OpenList and Path
-			if m.Data[y][x] == 1 { // passable Cell
+			if m.Data[y][x] == StartCell {
 				m.Cells[i].StartPoint = true
 				m.Cells[i].OpenList = true
 				m.StartPoint = Coordinates{x, y}
 				m.CurrentPoint = m.StartPoint
 				m.OpenList = append(m.OpenList, m.Cells[i])
 				m.Path = append(m.Path, m.StartPoint)
-			} else if m.Data[y][x] == 3 { // FinishPoint Cell
+			} else if m.Data[y][x] == FinishCell {
 				m.Cells[i].FinishPoint = true
 				m.FinishPoint = Coordinates{x, y}
 			}
@@ -111,7 +119,6 @@ func (m *Matrix) EvaluateMovementCost() {
 	if m.StartPoint == m.CurrentPoint {
 		// for first step
 		fmt.Println("StartPoint is equal to CurrentPoint\n")
-		//i = m.GetCellIndex(m.StartPoint.x, m.StartPoint.y)
 		i = m.GetCellIndex(m.StartPoint)
 	} else {
 		// for other steps
@@ -150,7 +157,7 @@ func (m *Matrix) EvaluateMovementCost() {
 		v.ParentCellIndex = i // save parrent index for this neighbor
 
 		// add neighbors to OpenList
-		if m.Cells[NeighborCellIndex].Type == 0 {
+		if m.Cells[NeighborCellIndex].Type == PassableCell {
 			m.Cells[NeighborCellIndex].OpenList = true
 			m.OpenList = append(m.OpenList, m.Cells[NeighborCellIndex])
 		}
@@ -207,7 +214,7 @@ func (m Matrix) Move() int {
 			} else {
 				//fmt.Println(v.F, "<", n)
 				n = v.F
-				i = k // save to i a cell index with smallest F
+				i = k // save to i the cell index with smallest F
 			}
 		}
 	}
@@ -222,33 +229,11 @@ func (m Matrix) GetCellIndex(c Coordinates) int {
 	var CellIndex int
 	for k, v := range m.Cells {
 		if v.Coordinates == c {
-			//if v.Coordinates.x == x && v.Coordinates.y == y {
 			CellIndex = k
 		}
 	}
 	return CellIndex
 }
-
-/*
-func (m Matrix) GetStartPoint() Coordinates {
-	var StartPoint Coordinates
-	for _, v := range m.Cells {
-		if v.StartPoint {
-			StartPoint = v.Coordinates
-		}
-	}
-	return StartPoint
-}
-
-func (m Matrix) GetFinishPoint() Coordinates {
-	var FinishPoint Coordinates
-	for _, v := range m.Cells {
-		if v.FinishPoint {
-			FinishPoint = v.Coordinates
-		}
-	}
-	return FinishPoint
-}*/
 
 func main() {
 	var m Matrix
