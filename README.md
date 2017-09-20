@@ -1,4 +1,4 @@
-# astar
+# The Go language implementation of [A* search algorithm](https://en.wikipedia.org/wiki/A*_search_algorithm)
 
 ## Installation
 go install astar
